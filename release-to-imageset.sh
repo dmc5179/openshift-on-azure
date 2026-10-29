@@ -35,7 +35,7 @@ Defaults are relative to the current directory, so run it from a scratch
 directory holding the oc binary and pull secret for the build:
 
   cd ~/scratch/test-build
-  $(basename "$0") 4.155.37.96:5000/openshift/release-images:5.1.0-ec.1-x86_64
+  $(basename "$0") registry.example.com:5000/openshift/release-images:5.1.0-ec.1-x86_64
 
 Options:
   -r, --release IMAGE     Release image (alternative to the positional arg)
