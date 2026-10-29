@@ -169,6 +169,74 @@ oc-mirror --v2 \
 `working-dir`. Those have to be applied to the cluster so it resolves images
 from the mirror rather than quay.io.
 
+## Mirroring a release someone else built
+
+Engineering test builds arrive as a finished release image on their own
+registry rather than something this repo assembled. `release-to-imageset.sh`
+covers that case. Run it from a scratch directory holding the oc binary and
+pull secret for the build:
+
+```bash
+cd ~/scratch/test-build        # contains ./oc and ./pull-secret.json
+/path/to/release-to-imageset.sh <registry>:<port>/openshift/release-images:<tag>
+```
+
+It runs `oc adm release new --dir ./new_release`, reads
+`new_release/image-references`, and writes `./imageset-config.yaml` listing
+every payload image plus the release image itself. The release image is not in
+its own `image-references`, so it has to be added separately, and the script
+does that.
+
+Options worth knowing about:
+
+- `--skip-extract` reuses an existing `new_release/image-references`, so you
+  can regenerate the config without repeating the extraction.
+- `--force` replaces a previous extraction. It only deletes a directory that
+  contains an `image-references` file.
+- `--oc`, `--pull-secret`, `--dir` and `-o` override the defaults.
+
+### Give oc-mirror the same access oc had
+
+These registries are typically HTTPS with a certificate from a private CA, and
+they require a login whose credentials exist only in the pull secret you were
+given. `oc adm release new` gets past both with `--insecure=true` and
+`--registry-config`. **oc-mirror needs the equivalents passed explicitly**,
+otherwise every image on that registry fails, including the release image:
+
+```bash
+oc-mirror --v2 \
+  --config ./imageset-config.yaml \
+  --authfile ./pull-secret.json \
+  --src-tls-verify=false \
+  file://${PWD}/mirror
+```
+
+Without them oc-mirror verifies TLS by default and falls back to
+`~/.docker/config.json` for credentials. The main log reports only
+`Failed to copy generic <image>` with no reason. To see which problem it is,
+test one image directly:
+
+```bash
+skopeo inspect --tls-verify=false --authfile ./pull-secret.json \
+  docker://<registry>:<port>/<repo>:<tag>
+```
+
+| skopeo error | Fix |
+|---|---|
+| `x509: certificate signed by unknown authority` | `--src-tls-verify=false`, or install the CA as `/etc/containers/certs.d/<registry>:<port>/ca.crt` |
+| `authentication required` | `--authfile` pointing at the pull secret that has the registry's entry |
+
+Installing the CA is the better long-term fix, because certificates are then
+still verified.
+
+### Images pinned by tag
+
+Custom components in a test build are often referenced by a tag such as
+`:latest` rather than a digest, and the script warns when it sees them.
+oc-mirror copies whatever the tag points to when it runs, so if the builder
+pushes again between handing you the release and your mirror run, the mirror
+won't match the release. Mirror promptly, or ask for digest references.
+
 ## Troubleshooting
 
 | Symptom | Cause |
@@ -179,3 +247,4 @@ from the mirror rather than quay.io.
 | `manifest unknown` | A digest read from `podman inspect` instead of `skopeo inspect` |
 | `unauthorized` on `ocp-v4.0-art-dev` | Using the build auth context; payload images need the unmodified pull secret |
 | quay.io rate limiting | Add `--max-per-registry=1` to `oc adm` commands |
+| `Failed to copy generic` for every image on one registry, with no reason given | TLS or auth to that registry: pass `--src-tls-verify=false` and `--authfile`. See [mirroring a release someone else built](#mirroring-a-release-someone-else-built) |
