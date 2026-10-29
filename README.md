@@ -32,6 +32,7 @@ support.
 prereq.sh                 Install build dependencies on a RHEL 9 host
 setup-auth.sh             Build the registry auth files from your credentials
 release.sh                Assemble the custom release + imageset-config.yaml
+release-to-imageset.sh    imageset-config.yaml for a release someone else built
 lib/common.sh             Shared config, logging, and build state
 build/                    One script per component
 docs/
