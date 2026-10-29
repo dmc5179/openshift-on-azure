@@ -183,6 +183,27 @@ main() {
     fi
 
     write_imageset
+    print_mirror_command
+}
+
+# oc-mirror needs the same access oc had, passed explicitly: it verifies TLS by
+# default and falls back to ~/.docker/config.json for credentials, so without
+# these flags every image on the release's own registry fails with no reason
+# given.
+print_mirror_command() {
+    local tls_flag=""
+    [[ "${INSECURE}" == true ]] && tls_flag=" \\
+  --src-tls-verify=false"
+
+    cat <<EOF
+
+To mirror to disk:
+
+oc-mirror --v2 \\
+  --config $(realpath -m "${OUTPUT}") \\
+  --authfile $(realpath -m "${PULL_SECRET}")${tls_flag} \\
+  file://$(pwd)/mirror
+EOF
 }
 
 main "$@"

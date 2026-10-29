@@ -185,7 +185,8 @@ It runs `oc adm release new --dir ./new_release`, reads
 `new_release/image-references`, and writes `./imageset-config.yaml` listing
 every payload image plus the release image itself. The release image is not in
 its own `image-references`, so it has to be added separately, and the script
-does that.
+does that. It finishes by printing the oc-mirror command to use, with the
+flags described below already filled in.
 
 Options worth knowing about:
 
